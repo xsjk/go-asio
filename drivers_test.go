@@ -1,9 +1,9 @@
 package asio
 
 import (
+	"fmt"
 	"testing"
 )
-import "fmt"
 
 func TestListDrivers(t *testing.T) {
 	drivers, err := ListDrivers()
@@ -16,26 +16,35 @@ func TestListDrivers(t *testing.T) {
 		fmt.Printf("%s: %s\n", drv.CLSID, drv.Name)
 	}
 
+	// Use the first driver for testing.
+	var driver *ASIODriver
+	for _, drv := range drivers {
+		driver = drv
+		break
+	}
+	if driver == nil {
+		t.Error("No driver found")
+		return
+	}
+
 	{
 		fmt.Printf("CoInitialize(0)\n")
 		CoInitialize(0)
 		defer fmt.Printf("CoUninitialize()\n")
 		defer CoUninitialize()
 
-		ua1000 := drivers["UA-1000"]
-
-		fmt.Printf("ua1000.Open()\n")
-		err = ua1000.Open()
-		defer fmt.Printf("ua1000.Close()\n")
-		defer ua1000.Close()
+		fmt.Printf("driver.Open()\n")
+		err = driver.Open()
+		defer fmt.Printf("driver.Close()\n")
+		defer driver.Close()
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		drv := ua1000.ASIO
+		drv := driver.ASIO
 
-		fmt.Printf("UA-1000 opened.\n")
+		fmt.Printf("%s opened.\n", driver.Name)
 
 		fmt.Printf("getDriverName():      '%s'\n", drv.GetDriverName())
 		fmt.Printf("getDriverVersion():   %d\n", drv.GetDriverVersion())
