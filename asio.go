@@ -437,10 +437,9 @@ func (drv *IASIO) AsIUnknown() *IUnknown { return (*IUnknown)(unsafe.Pointer(drv
 
 // virtual ASIOBool init(void *sysHandle) = 0;
 func (drv *IASIO) Init(sysHandle uintptr) (ok bool) {
-	r1, _, _ := syscall.Syscall(drv.vtbl_asio.pInit, 2,
+	r1, _, _ := syscall.SyscallN(drv.vtbl_asio.pInit,
 		uintptr(unsafe.Pointer(drv)),
-		sysHandle,
-		uintptr(0))
+		sysHandle)
 	ok = (r1 != 0)
 	return
 }
@@ -448,10 +447,9 @@ func (drv *IASIO) Init(sysHandle uintptr) (ok bool) {
 // virtual void getDriverName(char *name) = 0;
 func (drv *IASIO) GetDriverName() string {
 	name := [128]byte{0}
-	syscall.Syscall(drv.vtbl_asio.pGetDriverName, 2,
+	syscall.SyscallN(drv.vtbl_asio.pGetDriverName,
 		uintptr(unsafe.Pointer(drv)),
-		uintptr(unsafe.Pointer(&name[0])),
-		uintptr(0))
+		uintptr(unsafe.Pointer(&name[0])))
 
 	lz := bytes.IndexByte(name[:], byte(0))
 	return string(name[:lz])
@@ -459,10 +457,8 @@ func (drv *IASIO) GetDriverName() string {
 
 // virtual long getDriverVersion() = 0;
 func (drv *IASIO) GetDriverVersion() int32 {
-	r1, _, _ := syscall.Syscall(drv.vtbl_asio.pGetDriverVersion, 2,
-		uintptr(unsafe.Pointer(drv)),
-		uintptr(0),
-		uintptr(0))
+	r1, _, _ := syscall.SyscallN(drv.vtbl_asio.pGetDriverVersion,
+		uintptr(unsafe.Pointer(drv)))
 	return int32(r1)
 }
 
@@ -470,10 +466,9 @@ func (drv *IASIO) GetDriverVersion() int32 {
 func (drv *IASIO) GetErrorMessage() string {
 	str := [128]byte{0}
 
-	_, _, _ = syscall.Syscall(drv.vtbl_asio.pGetErrorMessage, 2,
+	_, _, _ = syscall.SyscallN(drv.vtbl_asio.pGetErrorMessage,
 		uintptr(unsafe.Pointer(drv)),
-		uintptr(unsafe.Pointer(&str[0])),
-		uintptr(0))
+		uintptr(unsafe.Pointer(&str[0])))
 
 	lz := bytes.IndexByte(str[:], byte(0))
 	return string(str[:lz])
@@ -481,10 +476,8 @@ func (drv *IASIO) GetErrorMessage() string {
 
 // virtual ASIOError start() = 0;
 func (drv *IASIO) Start() (err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pStart, 1,
-		uintptr(unsafe.Pointer(drv)),
-		uintptr(0),
-		uintptr(0))
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pStart,
+		uintptr(unsafe.Pointer(drv)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
@@ -494,10 +487,8 @@ func (drv *IASIO) Start() (err error) {
 
 // virtual ASIOError stop() = 0;
 func (drv *IASIO) Stop() (err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pStop, 1,
-		uintptr(unsafe.Pointer(drv)),
-		uintptr(0),
-		uintptr(0))
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pStop,
+		uintptr(unsafe.Pointer(drv)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
@@ -509,7 +500,7 @@ func (drv *IASIO) Stop() (err error) {
 func (drv *IASIO) GetChannels() (numInputChannels, numOutputChannels int, err error) {
 	var tmpInputChannels, tmpOutputChannels uintptr
 
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pGetChannels, 3,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pGetChannels,
 		uintptr(unsafe.Pointer(drv)),
 		uintptr(unsafe.Pointer(&tmpInputChannels)),
 		uintptr(unsafe.Pointer(&tmpOutputChannels)))
@@ -525,7 +516,7 @@ func (drv *IASIO) GetChannels() (numInputChannels, numOutputChannels int, err er
 func (drv *IASIO) GetLatencies() (inputLatency, outputLatency int, err error) {
 	var tmpInputLatency, tmpOutputLatency uintptr
 
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pGetLatencies, 3,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pGetLatencies,
 		uintptr(unsafe.Pointer(drv)),
 		uintptr(unsafe.Pointer(&tmpInputLatency)),
 		uintptr(unsafe.Pointer(&tmpOutputLatency)))
@@ -541,14 +532,12 @@ func (drv *IASIO) GetLatencies() (inputLatency, outputLatency int, err error) {
 func (drv *IASIO) GetBufferSize() (minSize, maxSize, preferredSize, granularity int, err error) {
 	var tmpminSize, tmpmaxSize, tmppreferredSize, tmpgranularity uintptr
 
-	ase, _, _ := syscall.Syscall6(drv.vtbl_asio.pGetBufferSize, 5,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pGetBufferSize,
 		uintptr(unsafe.Pointer(drv)),
 		uintptr(unsafe.Pointer(&tmpminSize)),
 		uintptr(unsafe.Pointer(&tmpmaxSize)),
 		uintptr(unsafe.Pointer(&tmppreferredSize)),
-		uintptr(unsafe.Pointer(&tmpgranularity)),
-		uintptr(0),
-	)
+		uintptr(unsafe.Pointer(&tmpgranularity)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return 0, 0, 0, 0, derr
@@ -561,10 +550,9 @@ func (drv *IASIO) GetBufferSize() (minSize, maxSize, preferredSize, granularity 
 
 // virtual ASIOError canSampleRate(ASIOSampleRate sampleRate) = 0;
 func (drv *IASIO) CanSampleRate(sampleRate float64) (err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pCanSampleRate, 2,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pCanSampleRate,
 		uintptr(unsafe.Pointer(drv)),
-		*(*uintptr)(unsafe.Pointer(&sampleRate)),
-		uintptr(0))
+		*(*uintptr)(unsafe.Pointer(&sampleRate)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
@@ -574,10 +562,9 @@ func (drv *IASIO) CanSampleRate(sampleRate float64) (err error) {
 
 // virtual ASIOError getSampleRate(ASIOSampleRate *sampleRate) = 0;
 func (drv *IASIO) GetSampleRate() (sampleRate float64, err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pGetSampleRate, 2,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pGetSampleRate,
 		uintptr(unsafe.Pointer(drv)),
-		uintptr(unsafe.Pointer(&sampleRate)),
-		uintptr(0))
+		uintptr(unsafe.Pointer(&sampleRate)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return 0., derr
@@ -587,10 +574,9 @@ func (drv *IASIO) GetSampleRate() (sampleRate float64, err error) {
 
 // virtual ASIOError setSampleRate(ASIOSampleRate sampleRate) = 0;
 func (drv *IASIO) SetSampleRate(sampleRate float64) (err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pSetSampleRate, 2,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pSetSampleRate,
 		uintptr(unsafe.Pointer(drv)),
-		*(*uintptr)(unsafe.Pointer(&sampleRate)),
-		uintptr(0))
+		*(*uintptr)(unsafe.Pointer(&sampleRate)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
@@ -623,10 +609,9 @@ func (drv *IASIO) GetChannelInfo(channel int, isInput bool) (info *ChannelInfo, 
 		Channel: int32(channel),
 		IsInput: bool_int32(isInput),
 	}
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pGetChannelInfo, 2,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pGetChannelInfo,
 		uintptr(unsafe.Pointer(drv)),
-		uintptr(unsafe.Pointer(raw)),
-		uintptr(0))
+		uintptr(unsafe.Pointer(raw)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return nil, derr
@@ -672,20 +657,19 @@ func (drv *IASIO) CreateBuffers(bufferDescriptors []BufferInfo, bufferSize int, 
 	the_callbacks.pASIOMessage = uintptr(unsafe.Pointer(C.tramp_asioMessage))
 	the_callbacks.pBufferSwitchTimeInfo = uintptr(unsafe.Pointer(C.tramp_bufferSwitchTimeInfo))
 
-	ase, _, _ := syscall.Syscall6(drv.vtbl_asio.pCreateBuffers, 5,
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pCreateBuffers,
 		uintptr(unsafe.Pointer(drv)),
 		uintptr(unsafe.Pointer(&rawBufferInfos[0])),
 		uintptr(len(bufferDescriptors)),
 		uintptr(bufferSize),
-		uintptr(unsafe.Pointer(the_callbacks)),
-		uintptr(0))
+		uintptr(unsafe.Pointer(the_callbacks)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
 	}
 
 	// Project output buffer addresses back into input `[]BufferInfo`:
-	for i, _ := range bufferDescriptors {
+	for i := range bufferDescriptors {
 		bufferDescriptors[i].Buffers = rawBufferInfos[i].buffers
 	}
 
@@ -694,10 +678,8 @@ func (drv *IASIO) CreateBuffers(bufferDescriptors []BufferInfo, bufferSize int, 
 
 // virtual ASIOError disposeBuffers() = 0;
 func (drv *IASIO) DisposeBuffers() (err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pDisposeBuffers, 1,
-		uintptr(unsafe.Pointer(drv)),
-		uintptr(0),
-		uintptr(0))
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pDisposeBuffers,
+		uintptr(unsafe.Pointer(drv)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
@@ -707,10 +689,8 @@ func (drv *IASIO) DisposeBuffers() (err error) {
 
 // virtual ASIOError controlPanel() = 0;
 func (drv *IASIO) ControlPanel() (err error) {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pControlPanel, 1,
-		uintptr(unsafe.Pointer(drv)),
-		uintptr(0),
-		uintptr(0))
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pControlPanel,
+		uintptr(unsafe.Pointer(drv)))
 
 	if derr := drv.asError(ase); derr != nil {
 		return derr
@@ -723,10 +703,8 @@ func (drv *IASIO) ControlPanel() (err error) {
 
 // virtual ASIOError outputReady() = 0;
 func (drv *IASIO) OutputReady() bool {
-	ase, _, _ := syscall.Syscall(drv.vtbl_asio.pOutputReady, 1,
-		uintptr(unsafe.Pointer(drv)),
-		uintptr(0),
-		uintptr(0))
+	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pOutputReady,
+		uintptr(unsafe.Pointer(drv)))
 
 	return int32(ase) == int32(ASE_OK)
 }

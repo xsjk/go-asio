@@ -10,8 +10,7 @@ type ASIODriver struct {
 	Name  string
 	CLSID string
 	GUID  *GUID
-
-	ASIO *IASIO
+	ASIO  *IASIO
 }
 
 func (drv *ASIODriver) Open() (err error) {
@@ -25,7 +24,7 @@ func (drv *ASIODriver) Open() (err error) {
 
 	ok := drv.ASIO.Init(uintptr(0))
 	if !ok {
-		return fmt.Errorf("Could not init ASIO driver")
+		return fmt.Errorf("could not init asio driver")
 	}
 
 	return
@@ -49,7 +48,7 @@ func newDriver(key syscall.Handle, keynameUTF16 winUTF16string) (drv *ASIODriver
 	}
 
 	// Get CLSID of driver impl:
-	clsidUTF16, datatype, datasize := make([]uint16, 128, 128), uint32(syscall.REG_SZ), uint32(256)
+	clsidUTF16, datatype, datasize := make([]uint16, 128), uint32(syscall.REG_SZ), uint32(256)
 	err = syscall.RegQueryValueEx(subkey, clsidName, nil, &datatype, (*byte)(unsafe.Pointer(&clsidUTF16[0])), &datasize)
 	if err != nil {
 		return nil, err

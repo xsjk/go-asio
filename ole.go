@@ -69,21 +69,26 @@ var (
 )
 
 func CoInitialize(p uintptr) (hr uintptr) {
-	hr, _, _ = syscall.Syscall(uintptr(procCoInitialize), 1, p, 0, 0)
+	hr, _, _ = syscall.SyscallN(uintptr(procCoInitialize), p)
 	return
 }
 
 func CoUninitialize() {
-	syscall.Syscall(uintptr(procCoUninitialize), 0, 0, 0, 0)
+	syscall.SyscallN(uintptr(procCoUninitialize))
 }
 
 func CLSIDFromString(str string) (clsid *GUID, err error) {
 	var guid GUID
 	err = nil
 
-	hr, _, _ := syscall.Syscall(uintptr(procCLSIDFromString), 2,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(str))),
-		uintptr(unsafe.Pointer(&guid)), 0)
+	str_utf16, err := syscall.UTF16PtrFromString(str)
+	if err != nil {
+		return
+	}
+
+	hr, _, _ := syscall.SyscallN(uintptr(procCLSIDFromString),
+		uintptr(unsafe.Pointer(str_utf16)),
+		uintptr(unsafe.Pointer(&guid)))
 	if hr != 0 {
 		err = syscall.Errno(hr)
 	}
@@ -96,9 +101,9 @@ func CLSIDFromStringUTF16(str *uint16) (clsid *GUID, err error) {
 	var guid GUID
 	err = nil
 
-	hr, _, _ := syscall.Syscall(uintptr(procCLSIDFromString), 2,
+	hr, _, _ := syscall.SyscallN(uintptr(procCLSIDFromString),
 		uintptr(unsafe.Pointer(str)),
-		uintptr(unsafe.Pointer(&guid)), 0)
+		uintptr(unsafe.Pointer(&guid)))
 	if hr != 0 {
 		err = syscall.Errno(hr)
 	}
@@ -108,13 +113,12 @@ func CLSIDFromStringUTF16(str *uint16) (clsid *GUID, err error) {
 }
 
 func CreateInstance(clsid *GUID, iid *GUID) (unk *IUnknown, err error) {
-	hr, _, _ := syscall.Syscall6(uintptr(procCoCreateInstance), 5,
+	hr, _, _ := syscall.SyscallN(uintptr(procCoCreateInstance),
 		uintptr(unsafe.Pointer(clsid)),
 		0,
 		CLSCTX_INPROC_SERVER,
 		uintptr(unsafe.Pointer(iid)),
-		uintptr(unsafe.Pointer(&unk)),
-		0)
+		uintptr(unsafe.Pointer(&unk)))
 	if hr != 0 {
 		err = syscall.Errno(hr)
 	}
@@ -123,10 +127,8 @@ func CreateInstance(clsid *GUID, iid *GUID) (unk *IUnknown, err error) {
 
 func (unk *IUnknown) AddRef() (r1 uintptr, err error) {
 	var errno syscall.Errno
-	r1, _, errno = syscall.Syscall(unk.lpVtbl.pAddRef, uintptr(1),
-		uintptr(unsafe.Pointer(unk)),
-		uintptr(0),
-		uintptr(0))
+	r1, _, errno = syscall.SyscallN(unk.lpVtbl.pAddRef,
+		uintptr(unsafe.Pointer(unk)))
 	if errno != 0 {
 		err = errno
 	}
@@ -135,10 +137,8 @@ func (unk *IUnknown) AddRef() (r1 uintptr, err error) {
 
 func (unk *IUnknown) Release() (r1 uintptr, err error) {
 	var errno syscall.Errno
-	r1, _, errno = syscall.Syscall(unk.lpVtbl.pRelease, uintptr(1),
-		uintptr(unsafe.Pointer(unk)),
-		uintptr(0),
-		uintptr(0))
+	r1, _, errno = syscall.SyscallN(unk.lpVtbl.pRelease,
+		uintptr(unsafe.Pointer(unk)))
 	if errno != 0 {
 		err = errno
 	}
