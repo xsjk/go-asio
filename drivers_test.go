@@ -36,12 +36,12 @@ func TestListDrivers(t *testing.T) {
 
 		fmt.Printf("driver.Open()\n")
 		err = driver.Open()
-		defer fmt.Printf("driver.Close()\n")
-		defer driver.Close()
 		if err != nil {
 			t.Error(err)
 			return
 		}
+		defer fmt.Printf("driver.Close()\n")
+		defer driver.Close()
 
 		drv := driver.ASIO
 
@@ -159,7 +159,5 @@ func TestListDrivers(t *testing.T) {
 		}
 		fmt.Printf("stop()\n")
 
-		// disposeBuffers
-		// obj->Release()
 	}
 }
