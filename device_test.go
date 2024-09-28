@@ -33,7 +33,7 @@ func TestDevice(t *testing.T) {
 	}
 	defer device.Close()
 
-	device.SetIOHandler(func(
+	if err = device.Run(func(
 		inputChannelData [][]int32,
 		outputChannelData [][]int32,
 	) {
@@ -42,18 +42,7 @@ func TestDevice(t *testing.T) {
 		for i := range out_array {
 			out_array[i] = in_array[i]
 		}
-	})
-
-	// start
-	if err = device.Start(); err != nil {
-		t.Error(err)
-		return
-	}
-
-	time.Sleep(100 * time.Millisecond)
-
-	// stop
-	if err = device.Stop(); err != nil {
+	}, func() { time.Sleep(100 * time.Millisecond) }); err != nil {
 		t.Error(err)
 		return
 	}

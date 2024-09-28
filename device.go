@@ -273,3 +273,18 @@ func (dev *Device) SetIOHandler(handler func(
 )) {
 	dev.io_handler = handler
 }
+
+func (dev *Device) Run(handler func(
+	inputChannelData [][]int32,
+	outputChannelData [][]int32,
+), wait func()) error {
+	dev.SetIOHandler(handler)
+	if err := dev.Start(); err != nil {
+		return err
+	}
+	wait()
+	if err := dev.Stop(); err != nil {
+		return err
+	}
+	return nil
+}
