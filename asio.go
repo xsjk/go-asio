@@ -111,97 +111,11 @@ typedef long (*asioMessage) (long selector, long value, void* message, double* o
 typedef ASIOTime* (*bufferSwitchTimeInfo) (ASIOTime* params, long doubleBufferIndex, ASIOBool directProcess);
 
 // Pointer to Go function impl:
-bufferSwitchTimeInfo go_BufferSwitchTimeInfo;
+void onBufferSwitch(long doubleBufferIndex, ASIOBool directProcess);
+void onSampleRateDidChange(ASIOSampleRate sRate);
+long onASIOMessage(long selector, long value, void* message, double* opt);
+ASIOTime* onBufferSwitchTimeInfo(ASIOTime* params, long doubleBufferIndex, ASIOBool directProcess);
 
-long tramp_asioMessage(long selector, long value, void* message, double* opt)
-{
-    // currently the parameters "value", "message" and "opt" are not used.
-    long ret = 0;
-    switch(selector)
-    {
-    case kAsioSelectorSupported:
-        if(value == kAsioResetRequest
-            || value == kAsioEngineVersion
-            || value == kAsioResyncRequest
-            || value == kAsioLatenciesChanged
-            // the following three were added for ASIO 2.0, you don't necessarily have to support them
-            || value == kAsioSupportsTimeInfo
-            || value == kAsioSupportsTimeCode
-            || value == kAsioSupportsInputMonitor)
-            ret = 1L;
-        break;
-    case kAsioResetRequest:
-        // defer the task and perform the reset of the driver during the next "safe" situation
-        // You cannot reset the driver right now, as this code is called from the driver.
-        // Reset the driver is done by completely destruct is. I.e. ASIOStop(), ASIODisposeBuffers(), Destruction
-        // Afterwards you initialize the driver again.
-        ret = 1L;
-        break;
-    case kAsioResyncRequest:
-        // This informs the application, that the driver encountered some non fatal data loss.
-        // It is used for synchronization purposes of different media.
-        // Added mainly to work around the Win16Mutex problems in Windows 95/98 with the
-        // Windows Multimedia system, which could loose data because the Mutex was hold too long
-        // by another thread.
-        // However a driver can issue it in other situations, too.
-        ret = 1L;
-        break;
-    case kAsioLatenciesChanged:
-        // This will inform the host application that the drivers were latencies changed.
-        // Beware, it this does not mean that the buffer sizes have changed!
-        // You might need to update internal delay data.
-        ret = 1L;
-        break;
-    case kAsioEngineVersion:
-        // return the supported ASIO version of the host application
-        // If a host applications does not implement this selector, ASIO 1.0 is assumed
-        // by the driver
-        ret = 2L;
-        break;
-    case kAsioSupportsTimeInfo:
-        // informs the driver wether the asioCallbacks.bufferSwitchTimeInfo() callback
-        // is supported.
-        // For compatibility with ASIO 1.0 drivers the host application should always support
-        // the "old" bufferSwitch method, too.
-        ret = 1;
-        break;
-    case kAsioSupportsTimeCode:
-        // informs the driver wether application is interested in time code info.
-        // If an application does not need to know about time code, the driver has less work
-        // to do.
-        ret = 0;
-        break;
-    }
-    return ret;
-}
-
-// Main audio processing callback.
-// NOTE: Called on a separate thread from main() thread.
-ASIOTime *tramp_bufferSwitchTimeInfo(ASIOTime *timeInfo, long index, ASIOBool processNow)
-{
-	return timeInfo;
-	//return go_BufferSwitchTimeInfo(timeInfo, index, processNow);
-}
-
-// Trampoline to jump to Go function:
-void tramp_bufferSwitch(long index, ASIOBool processNow)
-{
-    // the actual processing callback.
-    // Beware that this is normally in a seperate thread, hence be sure that you take care
-    // about thread synchronization. This is omitted here for simplicity.
-
-    // as this is a "back door" into the bufferSwitchTimeInfo a timeInfo needs to be created
-    // though it will only set the timeInfo.samplePosition and timeInfo.systemTime fields and the according flags
-    ASIOTime  timeInfo;
-    memset (&timeInfo, 0, sizeof (timeInfo));
-
-    // get the time stamp of the buffer, not necessary if no
-    // synchronization to other media is required
-    //if (ASIOGetSamplePosition(&timeInfo.timeInfo.samplePosition, &timeInfo.timeInfo.systemTime) == 0)
-    //    timeInfo.timeInfo.flags = kSystemTimeValid | kSamplePositionValid;
-
-    tramp_bufferSwitchTimeInfo(&timeInfo, index, processNow);
-}
 */
 import "C"
 
@@ -354,25 +268,47 @@ type rawASIOTime struct { // both input/output
 	//	struct ASIOTimeCode     timeCode;       // optional, evaluated if (timeCode.flags & kTcValid)
 }
 
-type ASIOTime struct {
+type ASIOTime = C.ASIOTime
+type long = C.long
+
+var callback_funcs = Callbacks{}
+
+//export onBufferSwitch
+func onBufferSwitch(doubleBufferIndex long, directProcess long) {
+	if callback_funcs.BufferSwitch != nil {
+		callback_funcs.BufferSwitch(int32(doubleBufferIndex), int32_bool(int32(directProcess)))
+	}
 }
 
-//export go_BufferSwitch
-var go_BufferSwitch func(doubleBufferIndex int, directProcess bool)
+//export onSampleRateDidChange
+func onSampleRateDidChange(rate float64) {
+	if callback_funcs.SampleRateDidChange != nil {
+		callback_funcs.SampleRateDidChange(rate)
+	}
+}
 
-//export go_SampleRateDidChange
-var go_SampleRateDidChange func(rate float64)
+//export onASIOMessage
+func onASIOMessage(selector long, value long, message unsafe.Pointer, opt *float64) long {
+	if callback_funcs.AsioMessage != nil {
+		return long(callback_funcs.AsioMessage(int32(selector), int32(value), uintptr(message), opt))
+	}
+	return 0
+}
 
-var go_Message func(selector, value int32, message uintptr, opt *float64) int32
-
-var go_BufferSwitchTimeInfo func(params *ASIOTime, doubleBufferIndex int32, directProcess bool) *ASIOTime
+//export onBufferSwitchTimeInfo
+func onBufferSwitchTimeInfo(params *ASIOTime, doubleBufferIndex long, directProcess long) *ASIOTime {
+	if callback_funcs.BufferSwitchTimeInfo != nil {
+		return callback_funcs.BufferSwitchTimeInfo(params, int32(doubleBufferIndex), int32_bool(int32(directProcess)))
+	}
+	return nil
+}
 
 type Callbacks struct {
-	BufferSwitch func(doubleBufferIndex int, directProcess bool)
+	BufferSwitch func(doubleBufferIndex int32, directProcess bool)
 
 	SampleRateDidChange func(rate float64)
 
-	Message func(selector, value int32, message uintptr, opt *float64) int32
+	AsioMessage func(selector, value int32, message uintptr, opt *float64) int32
 
 	BufferSwitchTimeInfo func(params *ASIOTime, doubleBufferIndex int32, directProcess bool) *ASIOTime
 }
@@ -636,7 +572,12 @@ type callbacks struct {
 }
 
 // Create a GC root so this does not get collected.
-var the_callbacks = &callbacks{}
+var the_callbacks = &callbacks{
+	pBufferSwitch:         uintptr(C.onBufferSwitch),
+	pSampleRateDidChange:  uintptr(C.onSampleRateDidChange),
+	pASIOMessage:          uintptr(C.onASIOMessage),
+	pBufferSwitchTimeInfo: uintptr(C.onBufferSwitchTimeInfo),
+}
 
 // virtual ASIOError createBuffers(ASIOBufferInfo *bufferInfos, long numChannels, long bufferSize, ASIOCallbacks *callbacks) = 0;
 func (drv *IASIO) CreateBuffers(bufferDescriptors []BufferInfo, bufferSize int, callbacks Callbacks) (err error) {
@@ -650,12 +591,7 @@ func (drv *IASIO) CreateBuffers(bufferDescriptors []BufferInfo, bufferSize int, 
 
 	// Set global callbacks.
 	// NOTE: ASIO callbacks do not supply a context argument and so cannot generally be made driver-specific.
-	go_BufferSwitchTimeInfo = callbacks.BufferSwitchTimeInfo
-
-	the_callbacks.pBufferSwitch = uintptr(unsafe.Pointer(C.tramp_bufferSwitch))
-	the_callbacks.pSampleRateDidChange = uintptr(0)
-	the_callbacks.pASIOMessage = uintptr(unsafe.Pointer(C.tramp_asioMessage))
-	the_callbacks.pBufferSwitchTimeInfo = uintptr(unsafe.Pointer(C.tramp_bufferSwitchTimeInfo))
+	callback_funcs = callbacks
 
 	ase, _, _ := syscall.SyscallN(drv.vtbl_asio.pCreateBuffers,
 		uintptr(unsafe.Pointer(drv)),

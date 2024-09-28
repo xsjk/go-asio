@@ -3,6 +3,7 @@ package asio
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestListDrivers(t *testing.T) {
@@ -119,8 +120,8 @@ func TestListDrivers(t *testing.T) {
 
 		// createBuffers (set callbacks)
 		err = drv.CreateBuffers(bufferDescriptors, preferredSize, Callbacks{
-			BufferSwitch: func(doubleBufferIndex int, directProcess bool) {
-				//drv.
+			BufferSwitch: func(doubleBufferIndex int32, directProcess bool) {
+				fmt.Printf("BufferSwitch(%d, %v)\n", doubleBufferIndex, directProcess)
 			},
 		})
 		if err != nil {
@@ -148,6 +149,7 @@ func TestListDrivers(t *testing.T) {
 		fmt.Printf("start()\n")
 
 		// wait
+		time.Sleep(100 * time.Millisecond)
 
 		// stop
 		err = drv.Stop()
