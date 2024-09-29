@@ -224,6 +224,7 @@ func (dev *Device) Open() error {
 
 	return err
 }
+
 func (dev *Device) Close() error {
 	if drv, err := dev.getDriver(); err != nil {
 		return err
@@ -252,10 +253,13 @@ func (dev *Device) Reset() error {
 	}
 }
 
-func (dev *Device) Start() error {
+func (dev *Device) Start(handler func([][]int32, [][]int32)) error {
 	if drv, err := dev.getDriver(); err != nil {
 		return err
 	} else {
+		if handler != nil {
+			dev.io_handler = handler
+		}
 		return drv.Start()
 	}
 }
@@ -265,26 +269,4 @@ func (dev *Device) Stop() error {
 	} else {
 		return drv.Stop()
 	}
-}
-
-func (dev *Device) SetIOHandler(handler func(
-	inputChannelData [][]int32,
-	outputChannelData [][]int32,
-)) {
-	dev.io_handler = handler
-}
-
-func (dev *Device) Run(handler func(
-	inputChannelData [][]int32,
-	outputChannelData [][]int32,
-), wait func()) error {
-	dev.SetIOHandler(handler)
-	if err := dev.Start(); err != nil {
-		return err
-	}
-	wait()
-	if err := dev.Stop(); err != nil {
-		return err
-	}
-	return nil
 }
